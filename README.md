@@ -37,6 +37,30 @@ The tool uses a **three-layer approach** to make sure no permission prompt slips
 
 All three layers are installed and removed together — no partial states, no leftovers.
 
+## Modes
+
+How aggressive the auto-approval is depends on the mode:
+
+| Mode | Behavior |
+|------|----------|
+| `full` (default) | Trust me bro — auto-approves **everything**, including multiple-choice questions |
+| `conservative` | Auto-approves plain permission prompts, but leaves multiple-choice questions (Claude Code's `AskUserQuestion` tool) for you to answer |
+
+Multiple-choice questions aren't yes/no permission prompts — they ask you to pick between real options, so in `conservative` mode they're left alone instead of silently bypassed.
+
+```bash
+# Show the current mode
+tmb mode
+
+# Let multiple-choice questions through; auto-approve the rest
+tmb mode conservative
+
+# Back to auto-approving absolutely everything
+tmb mode full
+```
+
+The mode is stored in `~/.claude/tmb.json` and applies to whatever you have enabled. Restart Claude Code after changing it.
+
 ## Installation
 
 ```bash
@@ -87,6 +111,7 @@ Every built-in Claude Code tool and all MCP server tools:
 |------|-------------|
 | `~/.claude/settings.json` | `PreToolUse` and `PermissionRequest` hooks |
 | `~/.claude/settings.local.json` | Wildcard allow rules for tool permissions |
+| `~/.claude/tmb.json` | The current approval mode (`full` or `conservative`) |
 
 Running `tmb disable` cleanly removes everything this tool added, without touching your other Claude Code settings.
 
