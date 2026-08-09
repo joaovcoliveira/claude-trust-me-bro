@@ -86,10 +86,20 @@ function getHookCommand(subcommand) {
   return `node "${CLI_PATH}" ${subcommand}`;
 }
 
+// A hook command we wrote, but from a copy of this CLI living somewhere else —
+// a previous npm prefix, an `npx` cache, a git checkout. Matching only against
+// CLI_PATH would leave those entries unrecognised: `enable` would stack a second
+// auto-approver next to the old one, and `disable` could not remove it.
+const FOREIGN_HOOK_COMMAND = /cli\.mjs"?\s+(hook-pre-tool|hook-permission)\s*$/;
+
+function isOurCommand(command) {
+  if (typeof command !== "string") return false;
+  return command.includes(CLI_PATH) || FOREIGN_HOOK_COMMAND.test(command);
+}
+
 function isOurEntry(entry) {
-  const check = (str) => str?.includes(CLI_PATH);
-  if (entry.hooks?.some((h) => check(h.command))) return true;
-  if (check(entry.command)) return true;
+  if (entry.hooks?.some((h) => isOurCommand(h.command))) return true;
+  if (isOurCommand(entry.command)) return true;
   return false;
 }
 
@@ -112,16 +122,17 @@ function upsertHook(settings, eventName, hookCommand) {
   if (!Array.isArray(settings.hooks[eventName]))
     settings.hooks[eventName] = [];
 
-  const idx = settings.hooks[eventName].findIndex(isOurEntry);
   const hookEntry = {
     hooks: [{ type: "command", command: hookCommand }],
   };
 
-  if (idx >= 0) {
-    settings.hooks[eventName][idx] = hookEntry;
-  } else {
-    settings.hooks[eventName].push(hookEntry);
-  }
+  // Drop *every* entry of ours before adding the current one, so enabling twice
+  // — or from two different install paths — can never leave two auto-approvers
+  // registered for the same event. The first one wins in the original slot.
+  const idx = settings.hooks[eventName].findIndex(isOurEntry);
+  const others = settings.hooks[eventName].filter((entry) => !isOurEntry(entry));
+  others.splice(idx >= 0 ? Math.min(idx, others.length) : others.length, 0, hookEntry);
+  settings.hooks[eventName] = others;
 }
 
 function removeHook(settings, eventName) {
