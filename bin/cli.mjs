@@ -3,6 +3,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
+
+// Resolved once, and always through fileURLToPath: `new URL(...).pathname` keeps
+// the URL percent-encoding, so an install path containing a space comes back as
+// "/Users/me/Library/Application%20Support/..." — a path that does not exist on
+// disk. Both the hook command we write and the check that recognises it later
+// have to agree, so they share this one value.
+const CLI_PATH = fs.realpathSync(fileURLToPath(import.meta.url));
 
 const SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
 const LOCAL_SETTINGS_PATH = path.join(
@@ -75,13 +83,11 @@ const ALLOW_RULES = [
 ];
 
 function getHookCommand(subcommand) {
-  const cliPath = fs.realpathSync(new URL(import.meta.url).pathname);
-  return `node "${cliPath}" ${subcommand}`;
+  return `node "${CLI_PATH}" ${subcommand}`;
 }
 
 function isOurEntry(entry) {
-  const cliPath = new URL(import.meta.url).pathname;
-  const check = (str) => str?.includes(cliPath);
+  const check = (str) => str?.includes(CLI_PATH);
   if (entry.hooks?.some((h) => check(h.command))) return true;
   if (check(entry.command)) return true;
   return false;
